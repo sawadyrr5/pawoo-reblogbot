@@ -23,6 +23,8 @@ class Bot:
         self.pawoo = Mastodon(
             client_id='reblogbot_clientcred.txt',
             api_base_url=API_BASE_URL
+            # ratelimit_method='pace',
+            # ratelimit_pacefactor=2.0
         )
 
         self.pawoo.log_in(
@@ -34,24 +36,39 @@ class Bot:
 
         self.followings = self.pawoo.account_following(self.account['id'])
 
-        # self.path_following = config.get("file", "followings")
-        #
-        # try:
-        #     with open(self.path_following) as f:
-        #         self.followings = json.load(f)
-        # except FileNotFoundError:
-        #     self.followings = self.pawoo.account_following(self.account['id'])
-        #     # with open(self.path_following, 'w') as f:
-        #     #     json.dump(self.followings, f)
-        #
-        # print(self.followings)
+        self.reblog_count = {}
 
-        # print(self.account['id'])
+        with open('reblogs.json') as f:
+            self.reblog_count = json.load(f)
 
-    # def updateFolowing(self):
-    #     following_ids = [following['id'] for following in self.pawoo.account_following(self.account['id'])]
-    #     print(following_ids)
-    #     pass
+        self.reblog_queue = [key for key in self.reblog_count.keys()]
+
+            # self.reblog_queue = [self.reblog_count.keys]
+
+
+
+
+
+
+            # self.path_following = config.get("file", "followings")
+            #
+            # try:
+            #     with open(self.path_following) as f:
+            #         self.followings = json.load(f)
+            # except FileNotFoundError:
+            #     self.followings = self.pawoo.account_following(self.account['id'])
+            #     # with open(self.path_following, 'w') as f:
+            #     #     json.dump(self.followings, f)
+            #
+            # print(self.followings)
+
+            # print(self.account['id'])
+
+
+# def updateFolowing(self):
+#     following_ids = [following['id'] for following in self.pawoo.account_following(self.account['id'])]
+#     print(following_ids)
+#     pass
 
     def reblog(self):
         toots = self.pawoo.timeline_home(limit=80)
@@ -59,43 +76,80 @@ class Bot:
             if toot['media_attachments']:
                 self.pawoo.status_reblog(id=toot['id'])
 
+
     def unreblog(self):
         mytoots = self.pawoo.account_statuses(id=self.account['id'])
         for toot in mytoots:
             if toot['reblog']:
                 self.pawoo.status_delete(id=toot['id'])
 
-    # def hamafollow(self):
-    #     # follows = self.pawoo.account_following(id=11338)
-    #     # self.pawoo.ratelimit_limit = 100
-    #     acc = self.pawoo.account_following(id=11338)
-    #     # print(acc)
-    #     # print(len(acc))
-    #
-    #     # follows = self.followings
-    #
-    #     self.pawoo.ratelimit_limit=80
-    #
-    #     for follow in acc:
-    #         print('unfollow', follow['id'])
-    #         # self.pawoo.account_follow(id=follow['id'])
-    #     # print(len(follows))
-    #     # # print(follows)
-    #     # for follow in follows:
-    #     #     tgtid = follow['id']
-    #     #     print('followed', tgtid)
-    #         try:
-    #             # self.pawoo.account_unfollow(id=follow['id'])
-    #             self.pawoo.account_follow(id=follow['id'])
-    #         except:
-    #             pass
-    #     #     sleep(1)
+
+    def read_timeline_home(self):
+        toots = self.pawoo.timeline_home()
+        for toot in toots:
+            if toot['reblog']:
+                t = toot['reblog']
+            else:
+                t = toot
+            # 誰かへのreplyは除く. 画像付き投稿を対象にする.
+            if not t['in_reply_to_id'] and t['media_attachments']:
+                self.reblog_queue.append(t['id'])
+
+
+    def read_timeline_hashtag(self, hashtag=None):
+        toots = self.pawoo.timeline_hashtag(hashtag=hashtag)
+        for toot in toots:
+            if toot['reblog']:
+                t = toot['reblog']
+            else:
+                t = toot
+            # 誰かへのreplyは除く. 画像付き投稿を対象にする.
+            if not t['in_reply_to_id'] and t['media_attachments']:
+                self.reblog_queue.append(t['id'])
+
+
+    def reblog_toot(self):
+        """
+        キューに保存したtootをreblogする
+        """
+        FAVOURITES_THRESHOLD = 10
+        REBLOGS_THRESHOLD = 10
+
+
+        id = self.reblog_queue.pop(0)
+        print(id)
+        toot = self.pawoo.status(id)
+        if toot['favourites_count'] >= FAVOURITES_THRESHOLD and toot['reblogs_count'] >= REBLOGS_THRESHOLD:
+            pass
+        else:
+            return
+
+        # 自分がreblogしたことがあれば解除
+        if toot['reblogged']:
+            self.pawoo.status_unreblog(id)
+
+        self.pawoo.status_reblog(id)
+        print('reblogged', id)
+
+        # reblog回数を+1する
+        self.reblog_count[str(id)] = self.reblog_count.get(str(id), 0) + 1
+
+        # reblog結果回数を保存する
+        with open('reblogs.json', 'w') as f:
+            json.dump(self.reblog_count, f, indent=4)
 
 
 if __name__ == '__main__':
-
     reblogbot = Bot()
     # reblogbot.hamafollow()
 
-    reblogbot.reblog()
+    reblogbot.read_timeline_home()
+    # reblogbot.read_timeline_hashtag('水着')
+
+    reblogbot.reblog_toot()
     # reblogbot.unreblog()
+
+    while True:
+        reblogbot.reblog_toot()
+        sleep(5)
+        # reblogbot.unreblog()
