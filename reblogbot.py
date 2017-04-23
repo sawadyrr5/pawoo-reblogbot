@@ -6,37 +6,29 @@ from datetime import datetime
 import dateutil.parser
 import random
 
+INSTALL_PATH = '/home/ec2-user/pawoo-reblogbot/'
+
 config = configparser.ConfigParser()
-config.read('./config.ini')
+config.read(INSTALL_PATH + 'config.ini')
 
 API_BASE_URL = config.get("api", "API_BASE_URL")
-USERNAME = config.get("auth", "USERNAME")
-PASSWORD = config.get("auth", "PASSWORD")
+
+# reblogするtootのidとreblog回数を保存するファイル
+FILE_REBLOGS = INSTALL_PATH + 'reblogs.json'
 
 
 class Bot:
     def __init__(self):
-        Mastodon.create_app(
-            client_name='reblogbot',
-            api_base_url=API_BASE_URL,
-            to_file='reblogbot_clientcred.txt'
-        )
-
         self.pawoo = Mastodon(
-            client_id='reblogbot_clientcred.txt',
+            client_id=INSTALL_PATH + 'reblogbot_clientcred.txt',
+            access_token=INSTALL_PATH + 'reblogbot_usercred.txt',
             api_base_url=API_BASE_URL
-        )
-
-        self.pawoo.log_in(
-            username=USERNAME,
-            password=PASSWORD,
-            to_file="reblogbot_usercred.txt"
         )
         self.account = self.pawoo.account_verify_credentials()
 
         # reblog対象toot idを読み込む
         self.reblog_count = {}
-        with open('reblogs.json') as f:
+        with open(FILE_REBLOGS) as f:
             self.reblog_count = json.load(f)
 
     def read_timeline(self):
@@ -47,7 +39,7 @@ class Bot:
             else:
                 t = toot
 
-            # 誰かへのreplyは除く. 画像付き投稿を対象にする.
+            # replyは除く. 画像付き投稿を対象にする.
             if not t['in_reply_to_id'] and t['media_attachments']:
                 if not t['id'] in self.reblog_count:
                     self.reblog_count.update({str(t['id']): 0})
@@ -62,25 +54,23 @@ class Bot:
 
         # 指定回数繰り返す
         for i in range(0, REBLOGS):
-
             id = random.choice(list(self.reblog_count.keys()))
             toot = self.pawoo.status(id)
 
-            # reblog可能かどうか判定する
-            if self._can_reblog(toot) and self.reblog_count[id] < MAX_REBLOG_COUNT:
+            # tootがreblog条件を満たしており、自分がreblogした回数が規定の最大値以下であればreblogする
+            if self._can_reblog(toot) and self.reblog_count[str(id)] < MAX_REBLOG_COUNT:
 
-                # 自分がreblogしたことがあれば解除
+                # 自分がreblogしたことがあれば解除する
                 if toot['reblogged']:
                     self.pawoo.status_unreblog(id)
 
                 self.pawoo.status_reblog(id)
-                # print('reblogged', id)
 
                 # reblog回数を+1する
                 self.reblog_count[str(id)] = self.reblog_count.get(str(id), 0) + 1
 
                 # reblog結果回数を保存する
-                with open('reblogs.json', 'w') as f:
+                with open(FILE_REBLOGS, 'w') as f:
                     json.dump(self.reblog_count, f, indent=4)
 
         return
