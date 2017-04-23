@@ -9,8 +9,6 @@ config = configparser.ConfigParser()
 config.read(INSTALL_PATH + 'config.ini')
 
 API_BASE_URL = config.get("api", "API_BASE_URL")
-USERNAME = config.get("auth", "USERNAME")
-PASSWORD = config.get("auth", "PASSWORD")
 
 # credentialを作る
 Mastodon.create_app(
@@ -25,7 +23,7 @@ mastodon = Mastodon(
 )
 
 mastodon.log_in(
-    username=USERNAME,
-    password=PASSWORD,
+    username='your_username',
+    password='your_password',
     to_file="reblogbot_usercred.txt"
 )
