@@ -1,29 +1,25 @@
 #!/usr/local/bin python
 # -*- coding: utf-8 -*-
 from mastodon import Mastodon
-import configparser
 
-INSTALL_PATH = '/hoge/app-path/'
-
-config = configparser.ConfigParser()
-config.read(INSTALL_PATH + 'config.ini')
-
-API_BASE_URL = config.get("api", "API_BASE_URL")
+API_BASE_URL = 'https://pawoo.net'
+CLIENTCRED_FILE = 'reblogbot_clientcred.txt'
+USERCRED_FILE = 'reblogbot_usercred.txt'
 
 # credentialを作る
 Mastodon.create_app(
     "pawoo-reblogbot",
     api_base_url=API_BASE_URL,
-    to_file="reblogbot_clientcred.txt"
+    to_file=CLIENTCRED_FILE
 )
 
 mastodon = Mastodon(
-    client_id="reblogbot_clientcred.txt",
+    client_id=CLIENTCRED_FILE,
     api_base_url=API_BASE_URL
 )
 
 mastodon.log_in(
     username='your_username',
     password='your_password',
-    to_file="reblogbot_usercred.txt"
+    to_file=USERCRED_FILE
 )

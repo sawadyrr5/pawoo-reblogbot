@@ -1,17 +1,15 @@
 # -*- coding: utf-8 -*-
 from mastodon import Mastodon
 import json
-import configparser
 from datetime import datetime
 import dateutil.parser
 import random
 
-INSTALL_PATH = '/home/ec2-user/pawoo-reblogbot/'
+INSTALL_PATH = '/hoge/'
+CLIENTCRED_FILE = 'reblogbot_clientcred.txt'
+USERCRED_FILE = 'reblogbot_usercred.txt'
 
-config = configparser.ConfigParser()
-config.read(INSTALL_PATH + 'config.ini')
-
-API_BASE_URL = config.get("api", "API_BASE_URL")
+API_BASE_URL = 'https://pawoo.net'
 
 # reblogするtootのidとreblog回数を保存するファイル
 FILE_REBLOGS = INSTALL_PATH + 'reblogs.json'
@@ -20,8 +18,8 @@ FILE_REBLOGS = INSTALL_PATH + 'reblogs.json'
 class Bot:
     def __init__(self):
         self.pawoo = Mastodon(
-            client_id=INSTALL_PATH + 'reblogbot_clientcred.txt',
-            access_token=INSTALL_PATH + 'reblogbot_usercred.txt',
+            client_id=INSTALL_PATH + CLIENTCRED_FILE,
+            access_token=INSTALL_PATH + USERCRED_FILE,
             api_base_url=API_BASE_URL
         )
         self.account = self.pawoo.account_verify_credentials()
